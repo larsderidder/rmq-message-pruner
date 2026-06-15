@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class FilterConfig:
     """Configuration for filtering and optionally republishing queue messages."""
+
     host: str
     port: int
     vhost: str
@@ -76,7 +77,9 @@ def process_messages(config: FilterConfig) -> None:
                 break
 
             payload = body.decode("utf-8", errors="replace")
-            drop = should_drop(payload, config.match_terms, config.match_mode, config.ignore_case)
+            drop = should_drop(
+                payload, config.match_terms, config.match_mode, config.ignore_case
+            )
 
             if not drop and config.republish:
                 channel.basic_publish(
@@ -101,7 +104,9 @@ def process_messages(config: FilterConfig) -> None:
 
 def parse_args(argv: Optional[List[str]] = None) -> FilterConfig:
     """Parse CLI arguments into a FilterConfig."""
-    parser = argparse.ArgumentParser(description="Filter RabbitMQ queue messages by content")
+    parser = argparse.ArgumentParser(
+        description="Filter RabbitMQ queue messages by content"
+    )
     parser.add_argument("--host", default="localhost")
     parser.add_argument("--port", type=int, default=5672)
     parser.add_argument("--vhost", default="/")
@@ -117,6 +122,8 @@ def parse_args(argv: Optional[List[str]] = None) -> FilterConfig:
     parser.add_argument("--max-messages", type=int)
 
     args = parser.parse_args(argv)
+    if args.republish and args.workers != 1:
+        parser.error("--republish cannot be combined with --workers greater than 1")
     return FilterConfig(
         host=args.host,
         port=args.port,
@@ -142,7 +149,9 @@ def main(argv: Optional[List[str]] = None) -> None:
         return
 
     with ThreadPoolExecutor(max_workers=config.workers) as executor:
-        futures = [executor.submit(process_messages, config) for _ in range(config.workers)]
+        futures = [
+            executor.submit(process_messages, config) for _ in range(config.workers)
+        ]
         for future in futures:
             future.result()
 
